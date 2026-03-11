@@ -53,9 +53,9 @@ describe('SignIn Page', () => {
       wrapper: ThemeProvider,
     });
 
-    const emailField = getByPlaceholderText('E-mail');
-    const passwordField = getByPlaceholderText('Senha');
-    const buttonElement = getByText('Entrar');
+    const emailField = getByPlaceholderText('Email');
+    const passwordField = getByPlaceholderText('Password');
+    const buttonElement = getByText('Sign In');
 
     fireEvent.change(emailField, { target: { value: 'johndoe@example.com' } });
     fireEvent.change(passwordField, { target: { value: '123456' } });
@@ -74,9 +74,9 @@ describe('SignIn Page', () => {
   it('should not be able to sign in with invalid crendentials', async () => {
     const { getByPlaceholderText, getByText } = render(<SignIn />);
 
-    const emailField = getByPlaceholderText('E-mail');
-    const passwordField = getByPlaceholderText('Senha');
-    const buttonElement = getByText('Entrar');
+    const emailField = getByPlaceholderText('Email');
+    const passwordField = getByPlaceholderText('Password');
+    const buttonElement = getByText('Sign In');
 
     fireEvent.change(emailField, { target: { value: 'invalid-credential' } });
     fireEvent.change(passwordField, { target: { value: '123456' } });
@@ -95,9 +95,9 @@ describe('SignIn Page', () => {
 
     const { getByPlaceholderText, getByText } = render(<SignIn />);
 
-    const emailField = getByPlaceholderText('E-mail');
-    const passwordField = getByPlaceholderText('Senha');
-    const buttonElement = getByText('Entrar');
+    const emailField = getByPlaceholderText('Email');
+    const passwordField = getByPlaceholderText('Password');
+    const buttonElement = getByText('Sign In');
 
     fireEvent.change(emailField, { target: { value: 'johndoe@example.com' } });
     fireEvent.change(passwordField, { target: { value: '123456' } });

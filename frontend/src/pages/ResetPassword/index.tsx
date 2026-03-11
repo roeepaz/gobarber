@@ -36,10 +36,10 @@ const ResetPassword: React.FC = () => {
         formRef.current?.setErrors({});
 
         const schema = Yup.object().shape({
-          password: Yup.string().required('Senha obrigatória'),
+          password: Yup.string().required('Password is required'),
           password_confirmation: Yup.string().oneOf(
             [Yup.ref('password'), null],
-            'Senha e confirmação precisam ser iguais.',
+            'Password and confirmation must match.',
           ),
         });
 
@@ -71,9 +71,9 @@ const ResetPassword: React.FC = () => {
         }
 
         addToast({
-          type: 'success',
-          title: 'Erro ao resetar senha',
-          description: 'Ocorreu um erro ao resetar sua senha, tente novamente.',
+          type: 'error',
+          title: 'Error resetting password',
+          description: 'An error occurred while resetting your password, please try again.',
         });
       }
     },
@@ -87,23 +87,23 @@ const ResetPassword: React.FC = () => {
           <img src={logo} alt="GoBarber" />
 
           <Form ref={formRef} onSubmit={handleSubmit}>
-            <h1>Resetar senha</h1>
+            <h1>Reset password</h1>
 
             <Input
               name="password"
               icon={FiLock}
               type="password"
-              placeholder="Nova Senha"
+              placeholder="New Password"
             />
 
             <Input
               name="password_confirmation"
               icon={FiLock}
               type="password"
-              placeholder="Confirmação da senha"
+              placeholder="Confirm password"
             />
 
-            <Button type="submit">Alterar senha</Button>
+            <Button type="submit">Change password</Button>
           </Form>
         </AnimationContainer>
       </Content>

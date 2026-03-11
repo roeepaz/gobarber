@@ -38,11 +38,11 @@ const SignUp: React.FC = () => {
         formRef.current?.setErrors({});
 
         const schema = Yup.object().shape({
-          name: Yup.string().required('Nome obrigatório'),
+          name: Yup.string().required('Name is required'),
           email: Yup.string()
-            .email('Digite um e-mail válido')
-            .required('E-mail obrigatório'),
-          password: Yup.string().min(6, 'No mínimo 6 dígitos'),
+            .email('Enter a valid email')
+            .required('Email is required'),
+          password: Yup.string().min(6, 'At least 6 characters'),
         });
 
         await schema.validate(data, {
@@ -53,8 +53,8 @@ const SignUp: React.FC = () => {
 
         addToast({
           type: 'success',
-          title: 'Cadastro realizado',
-          description: 'Você já pode fazer seu logon no GoBarber',
+          title: 'Registration completed',
+          description: 'You can now sign in to GoBarber',
         });
 
         history.push('/');
@@ -69,8 +69,8 @@ const SignUp: React.FC = () => {
 
         addToast({
           type: 'error',
-          title: 'Erro np cadastro',
-          description: 'Ocorreu um erro ao fazer cadastro, tente novamente',
+          title: 'Registration error',
+          description: 'An error occurred during registration, please try again',
         });
       }
     },
@@ -90,23 +90,23 @@ const SignUp: React.FC = () => {
           )}
 
           <Form ref={formRef} onSubmit={handleSubmit}>
-            <h1>Faça seu cadastro</h1>
+            <h1>Create your account</h1>
 
-            <Input name="name" icon={FiUser} placeholder="Nome" />
-            <Input name="email" icon={FiMail} placeholder="E-mail" />
+            <Input name="name" icon={FiUser} placeholder="Name" />
+            <Input name="email" icon={FiMail} placeholder="Email" />
             <Input
               name="password"
               icon={FiLock}
               type="password"
-              placeholder="Senha"
+              placeholder="Password"
             />
 
-            <Button type="submit">Cadastrar</Button>
+            <Button type="submit">Sign Up</Button>
           </Form>
 
           <Link to="/">
             <FiChevronLeft />
-            Voltar para logon
+            Back to sign in
           </Link>
         </AnimationContainer>
       </Content>
