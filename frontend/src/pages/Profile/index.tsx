@@ -38,25 +38,25 @@ const Profile: React.FC = () => {
         formRef.current?.setErrors({});
 
         const schema = Yup.object().shape({
-          name: Yup.string().required('Nome obrigatório'),
+          name: Yup.string().required('Name is required'),
           email: Yup.string()
-            .email('Digite um e-mail válido')
-            .required('E-mail obrigatório'),
+            .email('Enter a valid email')
+            .required('Email is required'),
           old_password: Yup.string(),
           password: Yup.string().when('old_password', {
             is: val => !!val.length,
-            then: Yup.string().required('Senha é obrigatória'),
+            then: Yup.string().required('Password is required'),
             otherwise: Yup.string(),
           }),
           password_confirmation: Yup.string()
             .when('old_password', {
               is: val => !!val.length,
-              then: Yup.string().required('Confimação de senha é obrigatória'),
+              then: Yup.string().required('Password confirmation is required'),
               otherwise: Yup.string(),
             })
             .oneOf(
               [Yup.ref('password'), null],
-              'Senha e confirmação precisam ser iguais.',
+              'Password and confirmation must match.',
             ),
         });
 
@@ -92,9 +92,9 @@ const Profile: React.FC = () => {
 
         addToast({
           type: 'success',
-          title: 'Perfil realizado',
+          title: 'Profile updated',
           description:
-            'Suas informações do perfil foram atualizadas com sucesso!',
+            'Your profile information has been updated successfully!',
         });
 
         history.push('/');
@@ -109,8 +109,8 @@ const Profile: React.FC = () => {
 
         addToast({
           type: 'error',
-          title: 'Erro na atualização',
-          description: 'Ocorreu um erro ao atualizar o perfil, tente novamente',
+          title: 'Update error',
+          description: 'An error occurred while updating the profile, please try again',
         });
       }
     },
@@ -129,7 +129,7 @@ const Profile: React.FC = () => {
 
           addToast({
             type: 'success',
-            title: 'Avatar atualizado',
+            title: 'Avatar updated',
           });
         });
       }
@@ -176,31 +176,31 @@ const Profile: React.FC = () => {
             </label>
           </Avatar>
 
-          <h1>Meu perfil</h1>
+          <h1>My profile</h1>
 
-          <Input name="name" icon={FiUser} placeholder="Nome" />
-          <Input name="email" icon={FiMail} placeholder="E-mail" />
+          <Input name="name" icon={FiUser} placeholder="Name" />
+          <Input name="email" icon={FiMail} placeholder="Email" />
           <Input
             containerStyle={{ marginTop: 24 }}
             name="old_password"
             icon={FiLock}
             type="password"
-            placeholder="Senha atual"
+            placeholder="Current password"
           />
           <Input
             name="password"
             icon={FiLock}
             type="password"
-            placeholder="Nova senha"
+            placeholder="New password"
           />
           <Input
             name="password_confirmation"
             icon={FiLock}
             type="password"
-            placeholder="Confirmar senha"
+            placeholder="Confirm password"
           />
 
-          <Button type="submit">Confirmar mudanças</Button>
+          <Button type="submit">Confirm changes</Button>
         </Form>
       </Content>
     </Container>
