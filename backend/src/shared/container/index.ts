@@ -15,6 +15,9 @@ import UserTokensRepository from '@modules/users/infra/typeorm/repositories/User
 import INotificationsRepository from '@modules/notifications/repositories/INotificationsRepository';
 import NotificationsRepository from '@modules/notifications/infra/typeorm/repositories/NotificationsRepository';
 
+import IAvailableSlotsRepository from '@modules/appointments/repositories/IAvailableSlotsRepository';
+import AvailableSlotsRepository from '@modules/appointments/infra/typeorm/repositories/AvailableSlotsRepository';
+
 container.registerSingleton<IAppointmentsRepository>(
   'AppointmentsRepository',
   AppointmentsRepository,
@@ -33,4 +36,9 @@ container.registerSingleton<IUserTokensRepository>(
 container.registerSingleton<INotificationsRepository>(
   'NotificationsRepository',
   NotificationsRepository,
+);
+
+container.registerSingleton<IAvailableSlotsRepository>(
+  'AvailableSlotsRepository',
+  AvailableSlotsRepository,
 );

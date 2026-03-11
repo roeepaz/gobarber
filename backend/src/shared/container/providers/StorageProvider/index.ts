@@ -1,16 +1,30 @@
-import { container } from 'tsyringe';
-import uploadConfig from '@config/upload';
-import IStorageProvider from './models/IStorageProvider';
+import path from 'path';
+import multer from 'multer';
+import crypto from 'crypto';
 
-import DiskStorageProvider from './implementations/DiskStorageProvider';
-import S3StorageProvider from './implementations/S3StorageProvider';
+const tmpFolder = path.resolve(__dirname, '..', '..', 'tmp');
 
-const providers = {
-  disk: DiskStorageProvider,
-  s3: S3StorageProvider,
+export default {
+  driver: process.env.STORAGE_DRIVER as 'disk' | 's3',  // 👈 must be this type
+
+  tmpFolder,
+  uploadsFolder: path.resolve(tmpFolder, 'uploads'),
+
+  multer: {
+    storage: multer.diskStorage({
+      destination: tmpFolder,
+      filename(request, file, callback) {
+        const fileHash = crypto.randomBytes(10).toString('hex');
+        const filename = `${fileHash}-${file.originalname}`;
+        return callback(null, filename);
+      },
+    }),
+  } as multer.Options,
+
+  config: {
+    disk: {},
+    aws: {
+      bucket: process.env.AWS_BUCKET,
+    },
+  },
 };
-
-container.registerSingleton<IStorageProvider>(
-  'StorageProvider',
-  providers[uploadConfig.driver],
-);

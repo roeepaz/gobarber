@@ -11,6 +11,11 @@ import Appointment from '../../infra/typeorm/entities/Appointment';
 class AppointmentsRepository implements IAppointmentRepository {
   private appointments: Appointment[] = [];
 
+  public async findById(id: string): Promise<Appointment | undefined> {
+    const appointment = this.appointments.find(a => a.id === id);
+    return appointment;
+  }
+
   public async findByDate(
     date: Date,
     provider_id: string,
@@ -56,6 +61,56 @@ class AppointmentsRepository implements IAppointmentRepository {
     return appointments;
   }
 
+  public async findAllByUser(user_id: string): Promise<Appointment[]> {
+    const appointments = this.appointments.filter(
+      appointment => appointment.user_id === user_id,
+    );
+
+    return appointments;
+  }
+
+  public async findAllByStatus(
+    status: 'pending' | 'approved' | 'rejected' | 'cancelled',
+  ): Promise<Appointment[]> {
+    const appointments = this.appointments.filter(
+      appointment => appointment.status === status,
+    );
+
+    return appointments;
+  }
+
+  public async findAllByUserAndDate(
+    user_id: string,
+    day: number,
+    month: number,
+    year: number,
+  ): Promise<Appointment[]> {
+    const appointments = this.appointments.filter(
+      appointment =>
+        appointment.user_id === user_id &&
+        getDate(appointment.date) === day &&
+        getMonth(appointment.date) + 1 === month &&
+        getYear(appointment.date) === year,
+    );
+
+    return appointments;
+  }
+
+  public async findAllInDay(
+    day: number,
+    month: number,
+    year: number,
+  ): Promise<Appointment[]> {
+    const appointments = this.appointments.filter(
+      appointment =>
+        getDate(appointment.date) === day &&
+        getMonth(appointment.date) + 1 === month &&
+        getYear(appointment.date) === year,
+    );
+
+    return appointments;
+  }
+
   public async create({
     provider_id,
     user_id,
@@ -63,9 +118,25 @@ class AppointmentsRepository implements IAppointmentRepository {
   }: ICreateAppointmentDTO): Promise<Appointment> {
     const appointment = new Appointment();
 
-    Object.assign(appointment, { id: uuid(), date, provider_id, user_id });
+    Object.assign(appointment, {
+      id: uuid(),
+      date,
+      provider_id,
+      user_id,
+      status: 'pending',
+    });
 
     this.appointments.push(appointment);
+
+    return appointment;
+  }
+
+  public async save(appointment: Appointment): Promise<Appointment> {
+    const findIndex = this.appointments.findIndex(
+      findAppointment => findAppointment.id === appointment.id,
+    );
+
+    this.appointments[findIndex] = appointment;
 
     return appointment;
   }

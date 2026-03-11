@@ -1,7 +1,7 @@
 import { injectable, inject } from 'tsyringe';
-import { getHours, isAfter } from 'date-fns';
+import { getHours, getMinutes, isAfter, startOfDay, endOfDay } from 'date-fns';
 
-import IAppointmentsRepository from '@modules/appointments/repositories/IAppointmentsRepository';
+import IAvailableSlotsRepository from '@modules/appointments/repositories/IAvailableSlotsRepository';
 
 interface IRequest {
   provider_id: string;
@@ -12,51 +12,53 @@ interface IRequest {
 
 type IResponse = Array<{
   hour: number;
+  minute: number;
   available: boolean;
 }>;
 
 @injectable()
 class ListProviderDayAvailabilityService {
   constructor(
-    @inject('AppointmentsRepository')
-    private appointmentsRepository: IAppointmentsRepository,
+    @inject('AvailableSlotsRepository')
+    private availableSlotsRepository: IAvailableSlotsRepository,
   ) {}
 
   public async execute({
-    provider_id,
     day,
     month,
     year,
   }: IRequest): Promise<IResponse> {
-    const appointments = await this.appointmentsRepository.findAllInDayFromProvider(
-      {
-        provider_id,
-        day,
-        month,
-        year,
-      },
-    );
+    // Get start and end of the selected day
+    const startDate = startOfDay(new Date(year, month - 1, day));
+    const endDate = endOfDay(new Date(year, month - 1, day));
 
-    const hourStart = 8;
-
-    const eachHourArray = Array.from(
-      { length: 10 },
-      (_, index) => index + hourStart,
+    // Get all available slots for this day from the available_slots table
+    const availableSlots = await this.availableSlotsRepository.findAvailableByDateRange(
+      startDate,
+      endDate,
     );
 
     const currentDate = new Date(Date.now());
 
-    const availability = eachHourArray.map(hour => {
-      const hasAppointmentInHour = appointments.find(
-        appointment => getHours(appointment.date) === hour,
-      );
-
-      const compareDate = new Date(year, month - 1, day, hour);
+    // Map the available slots to the response format
+    const availability = availableSlots.map(slot => {
+      const hour = getHours(slot.date);
+      const minute = getMinutes(slot.date);
+      const compareDate = new Date(year, month - 1, day, hour, minute);
 
       return {
         hour,
-        available: !hasAppointmentInHour && isAfter(compareDate, currentDate),
+        minute,
+        available: isAfter(compareDate, currentDate),
       };
+    });
+
+    // Sort by hour and minute
+    availability.sort((a, b) => {
+      if (a.hour !== b.hour) {
+        return a.hour - b.hour;
+      }
+      return a.minute - b.minute;
     });
 
     return availability;

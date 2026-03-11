@@ -7,6 +7,7 @@ interface IUser {
   name: string;
   email: string;
   avatar_url: string;
+  role: 'admin' | 'user';
 }
 
 interface IAuthState {
@@ -21,7 +22,7 @@ interface ISignInCredentials {
 
 interface IAuthContextData {
   user: IUser;
-  signIn(credentials: ISignInCredentials): Promise<void>;
+  signIn(credentials: ISignInCredentials): Promise<IUser>;
   signOut(): void;
   updateUser(user: IUser): void;
 }
@@ -82,7 +83,7 @@ const AuthProvider: React.FC = ({ children }) => {
   }, [signOut]);
 
   const signIn = useCallback(
-    async ({ email, password }) => {
+    async ({ email, password }): Promise<IUser> => {
       const response = await api.post('sessions', {
         email,
         password,
@@ -97,6 +98,8 @@ const AuthProvider: React.FC = ({ children }) => {
 
       setupInvalidSessionInterceptor();
       setData({ token, user });
+
+      return user;
     },
     [setupInvalidSessionInterceptor],
   );

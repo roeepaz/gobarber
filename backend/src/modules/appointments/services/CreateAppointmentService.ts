@@ -1,13 +1,16 @@
-import { startOfHour, isBefore, getHours, format } from 'date-fns';
+import { isBefore, format } from 'date-fns';
 import { injectable, inject } from 'tsyringe';
+import { getRepository, getManager } from 'typeorm';
 
 import AppError from '@shared/errors/AppError';
 
 import ICacheProvider from '@shared/container/providers/CacheProvider/models/ICacheProvider';
 import IAppointmentRepository from '@modules/appointments/repositories/IAppointmentsRepository';
+import IAvailableSlotsRepository from '@modules/appointments/repositories/IAvailableSlotsRepository';
 import IUsersRepository from '@modules/users/repositories/IUsersRepository';
 import INotificationsRepository from '@modules/notifications/repositories/INotificationsRepository';
 
+import AvailableSlot from '../infra/typeorm/entities/AvailableSlot';
 import Appointment from '../infra/typeorm/entities/Appointment';
 
 interface IRequest {
@@ -21,6 +24,9 @@ class CreateAppointmentService {
   constructor(
     @inject('AppointmentsRepository')
     private appointmentsRepository: IAppointmentRepository,
+
+    @inject('AvailableSlotsRepository')
+    private availableSlotsRepository: IAvailableSlotsRepository,
 
     @inject('UsersRepository')
     private usersRepository: IUsersRepository,
@@ -37,7 +43,7 @@ class CreateAppointmentService {
     user_id,
     date,
   }: IRequest): Promise<Appointment> {
-    const appointmentDate = startOfHour(date);
+    const appointmentDate = date;
 
     const checkProviderExists = await this.usersRepository.findById(
       provider_id,
@@ -45,29 +51,51 @@ class CreateAppointmentService {
 
     if (!checkProviderExists) throw new AppError('Provider not found');
 
-    const findAppointmentInSameDate = await this.appointmentsRepository.findByDate(
-      appointmentDate,
-      provider_id,
-    );
-
-    if (findAppointmentInSameDate)
-      throw new AppError('This appointment is already booked');
-
     if (isBefore(appointmentDate, Date.now()))
       throw new AppError("You can't create an appointment on a past Date");
 
     if (user_id === provider_id)
       throw new AppError("You can't create an appointment with yourself");
 
-    if (getHours(appointmentDate) < 8 || getHours(appointmentDate) > 17)
-      throw new AppError(
-        'You can only create appointments between 8am and 5pm',
-      );
+    // Use transaction with pessimistic locking to prevent race conditions
+    const appointment = await getManager().transaction(async transactionalEntityManager => {
+      const slotsRepository = transactionalEntityManager.getRepository(AvailableSlot);
+      const appointmentsRepository = transactionalEntityManager.getRepository(Appointment);
 
-    const appointment = await this.appointmentsRepository.create({
-      provider_id,
-      user_id,
-      date: appointmentDate,
+      // Lock the available slot row for update to prevent concurrent bookings
+      const availableSlot = await slotsRepository.findOne({
+        where: { date: appointmentDate },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!availableSlot || !availableSlot.is_available) {
+        throw new AppError('This time slot is not available for booking');
+      }
+
+      // Check for existing appointment within the transaction
+      const existingAppointment = await appointmentsRepository.findOne({
+        where: { date: appointmentDate, provider_id },
+      });
+
+      if (existingAppointment) {
+        throw new AppError('This appointment is already booked');
+      }
+
+      // Create appointment
+      const newAppointment = appointmentsRepository.create({
+        provider_id,
+        user_id,
+        date: appointmentDate,
+        status: 'pending',
+      });
+
+      await appointmentsRepository.save(newAppointment);
+
+      // Mark slot as unavailable
+      availableSlot.is_available = false;
+      await slotsRepository.save(availableSlot);
+
+      return newAppointment;
     });
 
     const formattedDate = format(appointmentDate, "dd/MM/yyyy 'às' HH:mm'h'");
