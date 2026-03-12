@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { Platform, Alert } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Feather';
-import { format } from 'date-fns';
+import { format, setHours, setMinutes } from 'date-fns';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { useAuth } from '../../hooks/auth';
@@ -17,7 +17,13 @@ interface IRouteParams {
 
 interface IAvailabilityItem {
   hour: number;
+  minute: number;
   available: boolean;
+}
+
+interface ISelectedSlot {
+  hour: number;
+  minute: number;
 }
 
 const CreateAppointment: React.FC = () => {
@@ -28,7 +34,7 @@ const CreateAppointment: React.FC = () => {
   const [availability, setAvailability] = useState<IAvailabilityItem[]>([]);
   const [providers, setProviders] = useState<IProvider[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedHour, setSelectedHour] = useState(0);
+  const [selectedSlot, setSelectedSlot] = useState<ISelectedSlot | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(
     routeParams.providerId,
@@ -72,6 +78,7 @@ const CreateAppointment: React.FC = () => {
       })
       .then(response => {
         setAvailability(response.data);
+        setSelectedSlot(null); // Reset selected slot when date changes
       });
   }, [selectedDate, selectedProvider]);
 
@@ -93,16 +100,21 @@ const CreateAppointment: React.FC = () => {
     if (date) setSelectedDate(date);
   }, []);
 
-  const handleSelectHour = useCallback((hour: number) => {
-    setSelectedHour(hour);
+  const handleSelectSlot = useCallback((hour: number, minute: number) => {
+    setSelectedSlot({ hour, minute });
   }, []);
 
   const handleCreateAppointment = useCallback(async () => {
+    if (!selectedSlot) {
+      Alert.alert('Selecione um horário', 'Por favor, selecione um horário disponível');
+      return;
+    }
+
     try {
       const date = new Date(selectedDate);
-
-      date.setHours(selectedHour);
-      date.setMinutes(0);
+      date.setHours(selectedSlot.hour);
+      date.setMinutes(selectedSlot.minute);
+      date.setSeconds(0);
 
       await api.post('appointments', {
         provider_id: selectedProvider,
@@ -116,27 +128,42 @@ const CreateAppointment: React.FC = () => {
         'Ocorreu um erro ao tentar criar o agendamento, tente novamente',
       );
     }
-  }, [navigate, selectedHour, selectedProvider, selectedDate]);
+  }, [navigate, selectedSlot, selectedProvider, selectedDate]);
 
   const morningAvailability = useMemo(() => {
     return availability
       .filter(({ hour }) => hour < 12)
-      .map(({ hour, available }) => ({
+      .map(({ hour, minute, available }) => ({
         hour,
+        minute,
         available,
-        formattedHour: format(new Date().setHours(hour), 'HH:00'),
+        formattedHour: format(
+          setMinutes(setHours(new Date(), hour), minute),
+          'HH:mm',
+        ),
       }));
   }, [availability]);
 
   const afternoonAvailability = useMemo(() => {
     return availability
       .filter(({ hour }) => hour >= 12)
-      .map(({ hour, available }) => ({
+      .map(({ hour, minute, available }) => ({
         hour,
+        minute,
         available,
-        formattedHour: format(new Date().setHours(hour), 'HH:00'),
+        formattedHour: format(
+          setMinutes(setHours(new Date(), hour), minute),
+          'HH:mm',
+        ),
       }));
   }, [availability]);
+
+  const isSlotSelected = useCallback(
+    (hour: number, minute: number) => {
+      return selectedSlot?.hour === hour && selectedSlot?.minute === minute;
+    },
+    [selectedSlot],
+  );
 
   return (
     <S.Container>
@@ -213,46 +240,57 @@ const CreateAppointment: React.FC = () => {
         <S.Schedule>
           <S.Title>Escolha o horário</S.Title>
 
-          <S.Section>
-            <S.SectionTitle>Manhã</S.SectionTitle>
+          {morningAvailability.length > 0 && (
+            <S.Section>
+              <S.SectionTitle>Manhã</S.SectionTitle>
 
-            <S.SectionContent>
-              {morningAvailability.map(({ formattedHour, available, hour }) => (
-                <S.Hour
-                  enabled={available}
-                  selected={selectedHour === hour}
-                  onPress={() => handleSelectHour(hour)}
-                  available={available}
-                  key={formattedHour}
-                >
-                  <S.HourText selected={selectedHour === hour}>
-                    {formattedHour}
-                  </S.HourText>
-                </S.Hour>
-              ))}
-            </S.SectionContent>
-          </S.Section>
-          <S.Section>
-            <S.SectionTitle>Tarde</S.SectionTitle>
-
-            <S.SectionContent>
-              {afternoonAvailability.map(
-                ({ formattedHour, available, hour }) => (
+              <S.SectionContent>
+                {morningAvailability.map(({ formattedHour, available, hour, minute }) => (
                   <S.Hour
                     enabled={available}
-                    selected={selectedHour === hour}
-                    onPress={() => handleSelectHour(hour)}
+                    selected={isSlotSelected(hour, minute)}
+                    onPress={() => handleSelectSlot(hour, minute)}
                     available={available}
                     key={formattedHour}
                   >
-                    <S.HourText selected={selectedHour === hour}>
+                    <S.HourText selected={isSlotSelected(hour, minute)}>
                       {formattedHour}
                     </S.HourText>
                   </S.Hour>
-                ),
-              )}
-            </S.SectionContent>
-          </S.Section>
+                ))}
+              </S.SectionContent>
+            </S.Section>
+          )}
+
+          {afternoonAvailability.length > 0 && (
+            <S.Section>
+              <S.SectionTitle>Tarde</S.SectionTitle>
+
+              <S.SectionContent>
+                {afternoonAvailability.map(
+                  ({ formattedHour, available, hour, minute }) => (
+                    <S.Hour
+                      enabled={available}
+                      selected={isSlotSelected(hour, minute)}
+                      onPress={() => handleSelectSlot(hour, minute)}
+                      available={available}
+                      key={formattedHour}
+                    >
+                      <S.HourText selected={isSlotSelected(hour, minute)}>
+                        {formattedHour}
+                      </S.HourText>
+                    </S.Hour>
+                  ),
+                )}
+              </S.SectionContent>
+            </S.Section>
+          )}
+
+          {availability.length === 0 && (
+            <S.Section>
+              <S.SectionTitle>Nenhum horário disponível</S.SectionTitle>
+            </S.Section>
+          )}
         </S.Schedule>
 
         <S.CreateAppointmentButton onPress={handleCreateAppointment}>

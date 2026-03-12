@@ -5,11 +5,11 @@ import React, {
   useMemo,
   useContext,
 } from 'react';
-import { isToday, format, parseISO, isAfter } from 'date-fns';
+import { isToday, format, parseISO, isAfter, isSameDay } from 'date-fns';
 import enUS from 'date-fns/locale/en-US';
 import DayPicker, { DayModifiers } from 'react-day-picker';
 import 'react-day-picker/lib/style.css';
-import { FiPower, FiClock } from 'react-icons/fi';
+import { FiPower, FiClock, FiCalendar, FiCheckCircle, FiLoader } from 'react-icons/fi';
 import { FaMoon, FaSun } from 'react-icons/fa';
 import Toggle from 'react-toggle';
 import { ThemeContext } from 'styled-components';
@@ -33,6 +33,12 @@ import {
   Appointment,
   Initials,
   Calendar,
+  AvailableSlotsSection,
+  SlotList,
+  SlotItem,
+  BookButton,
+  BookingMessage,
+  StatusBadge,
 } from './styles';
 
 interface MonthAvailabilityItem {
@@ -44,10 +50,18 @@ interface Appointment {
   id: string;
   date: string;
   formattedHour: string;
-  user: {
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  provider: {
     name: string;
     avatar_url: string;
   };
+}
+
+interface AvailableSlot {
+  id: string;
+  date: string;
+  is_available: boolean;
+  admin_id: string;
 }
 
 const Dashboard: React.FC = () => {
@@ -60,6 +74,9 @@ const Dashboard: React.FC = () => {
   const [monthAvailability, setMonthAvailability] = useState<
     MonthAvailabilityItem[]
   >([]);
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [bookingLoading, setBookingLoading] = useState<string | null>(null);
+  const [bookingMessage, setBookingMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleDateChange = useCallback((day: Date, modifiers: DayModifiers) => {
     if (modifiers.available && !modifiers.disabled) {
@@ -69,6 +86,53 @@ const Dashboard: React.FC = () => {
 
   const handleMonthChange = useCallback((month: Date) => {
     setCurrentMonth(month);
+  }, []);
+
+  // Fetch user's appointments
+  const fetchAppointments = useCallback(() => {
+    api
+      .get<Appointment[]>('/user/appointments', {
+        params: {
+          day: selectedDate.getDate(),
+          month: selectedDate.getMonth() + 1,
+          year: selectedDate.getFullYear(),
+        },
+      })
+      .then(response => {
+        const formattedAppointments = response.data.map(appointment => {
+          return {
+            ...appointment,
+            formattedHour: format(parseISO(appointment.date), 'HH:mm'),
+            provider: {
+              ...appointment.provider,
+              avatar_url:
+                appointment.provider.avatar_url ??
+                appointment.provider.name
+                  .split(' ')
+                  .map(name => name.charAt(0).toUpperCase())
+                  .join('')
+                  .substring(0, 2),
+            },
+          };
+        });
+        setAppointments(formattedAppointments);
+      })
+      .catch(error => {
+        console.error('Error fetching appointments:', error);
+        setAppointments([]);
+      });
+  }, [selectedDate]);
+
+  // Fetch available slots
+  const fetchAvailableSlots = useCallback(() => {
+    api
+      .get<AvailableSlot[]>('/available-slots')
+      .then(response => {
+        setAvailableSlots(response.data);
+      })
+      .catch(error => {
+        console.error('Error fetching available slots:', error);
+      });
   }, []);
 
   useEffect(() => {
@@ -85,34 +149,57 @@ const Dashboard: React.FC = () => {
   }, [currentMonth, user.id]);
 
   useEffect(() => {
-    api
-      .get<Appointment[]>('/appointments/me', {
-        params: {
-          day: selectedDate.getDate(),
-          month: selectedDate.getMonth() + 1,
-          year: selectedDate.getFullYear(),
-        },
-      })
-      .then(response => {
-        const formattedAppointments = response.data.map(appointment => {
-          return {
-            ...appointment,
-            formattedHour: format(parseISO(appointment.date), 'HH:mm'),
-            user: {
-              ...appointment.user,
-              avatar_url:
-                appointment.user.avatar_url ??
-                appointment.user.name
-                  .split(' ')
-                  .map(name => name.charAt(0).toUpperCase())
-                  .join('')
-                  .substring(0, 2),
-            },
-          };
-        });
-        setAppointments(formattedAppointments);
+    fetchAppointments();
+  }, [fetchAppointments]);
+
+  // Fetch available slots on component mount
+  useEffect(() => {
+    fetchAvailableSlots();
+  }, [fetchAvailableSlots]);
+
+  // Clear booking message after 3 seconds
+  useEffect(() => {
+    if (bookingMessage) {
+      const timer = setTimeout(() => {
+        setBookingMessage(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [bookingMessage]);
+
+  // Handle booking a slot
+  const handleBookSlot = useCallback(async (slot: AvailableSlot) => {
+    setBookingLoading(slot.id);
+    setBookingMessage(null);
+
+    try {
+      // Find the admin (provider) for this slot
+      const provider_id = slot.admin_id;
+      const date = slot.date;
+
+      await api.post('/appointments', {
+        provider_id,
+        date,
       });
-  }, [selectedDate]);
+
+      setBookingMessage({
+        type: 'success',
+        text: 'Appointment requested! Waiting for admin approval.',
+      });
+
+      // Refresh available slots and appointments
+      fetchAvailableSlots();
+      fetchAppointments();
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Error booking appointment. Please try again.';
+      setBookingMessage({
+        type: 'error',
+        text: errorMessage,
+      });
+    } finally {
+      setBookingLoading(null);
+    }
+  }, [fetchAvailableSlots, fetchAppointments]);
 
   const disabledDays = useMemo(() => {
     const dates = monthAvailability
@@ -139,23 +226,49 @@ const Dashboard: React.FC = () => {
     });
   }, [selectedDate]);
 
-  const morningAppointments = useMemo(() => {
-    return appointments.filter(appointment => {
-      return parseISO(appointment.date).getHours() < 12;
-    });
-  }, [appointments]);
-
-  const afternoonAppointments = useMemo(() => {
-    return appointments.filter(appointment => {
-      return parseISO(appointment.date).getHours() >= 12;
-    });
-  }, [appointments]);
+  // Helper function to map backend status to display status
+  const getDisplayStatus = useCallback(
+    (status: 'pending' | 'approved' | 'rejected' | 'cancelled') => {
+      switch (status) {
+        case 'approved':
+          return 'confirmed';
+        case 'rejected':
+          return 'cancelled';
+        default:
+          return status;
+      }
+    },
+    [],
+  );
 
   const nextAppointment = useMemo(() => {
     return appointments.find(appointment =>
       isAfter(parseISO(appointment.date), new Date()),
     );
   }, [appointments]);
+
+  // Filter slots for the selected date
+  const slotsForSelectedDate = useMemo(() => {
+    return availableSlots.filter(slot => {
+      const slotDate = parseISO(slot.date);
+      return isSameDay(slotDate, selectedDate) && slot.is_available;
+    }).sort((a, b) => {
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
+  }, [availableSlots, selectedDate]);
+
+  // Group slots by time period (morning/afternoon)
+  const morningSlots = useMemo(() => {
+    return slotsForSelectedDate.filter(slot => {
+      return parseISO(slot.date).getHours() < 12;
+    });
+  }, [slotsForSelectedDate]);
+
+  const afternoonSlots = useMemo(() => {
+    return slotsForSelectedDate.filter(slot => {
+      return parseISO(slot.date).getHours() >= 12;
+    });
+  }, [slotsForSelectedDate]);
 
   const nameInitials = useMemo(() => {
     return user.name
@@ -164,6 +277,10 @@ const Dashboard: React.FC = () => {
       .join('')
       .substring(0, 2);
   }, [user.name]);
+
+  const formatSlotTime = (dateString: string) => {
+    return format(parseISO(dateString), 'HH:mm');
+  };
 
   return (
     <Container>
@@ -222,18 +339,24 @@ const Dashboard: React.FC = () => {
               <strong>Next appointment</strong>
 
               <div>
-                {nextAppointment.user.avatar_url.length === 2 ? (
-                  <Initials>
-                    <span>{nextAppointment.user.avatar_url}</span>
-                  </Initials>
-                ) : (
-                  <img
-                    src={nextAppointment.user.avatar_url}
-                    alt={nextAppointment.user.name}
-                  />
-                )}
+                {/*{nextAppointment.provider.avatar_url.length === 2 ? (
+                //  <Initials>
+              //      <span>{nextAppointment.provider.avatar_url}</span>
+            //      </Initials>
+          //      ) : (
+        //          <img
+      //              src={nextAppointment.provider.avatar_url}
+    //                alt={nextAppointment.provider.name}
+  //                />
+//                )}
 
-                <strong>{nextAppointment.user.name}</strong>
+                */}
+
+
+                <strong>{nextAppointment.provider.name}</strong>
+                <StatusBadge status={getDisplayStatus(nextAppointment.status)}>
+                  {getDisplayStatus(nextAppointment.status)}
+                </StatusBadge>
                 <span>
                   <FiClock />
                   {nextAppointment.formattedHour}
@@ -242,65 +365,118 @@ const Dashboard: React.FC = () => {
             </NextAppointment>
           )}
           <Section>
-            <strong>Morning</strong>
+            <strong>Appointments for {selectedDateAsText}</strong>
 
-            {!morningAppointments.length && (
-              <p>No appointments for this period</p>
+            {!appointments.length && (
+              <p>No appointments for this day</p>
             )}
 
-            {morningAppointments.map(appointment => (
+            {appointments.map(appointment => (
               <Appointment key={appointment.id}>
-                <span>
+                <span className="date">
+                  {format(parseISO(appointment.date), 'MMM dd, yyyy')}
+                </span>
+                <span className="hour">
                   <FiClock />
                   {appointment.formattedHour}
                 </span>
                 <div>
-                  {appointment.user.avatar_url.length === 2 ? (
+                  {/*{appointment.provider.avatar_url.length === 2 ? (
                     <Initials>
-                      <span>{appointment.user.avatar_url}</span>
+                      <span>{appointment.provider.avatar_url}</span>
                     </Initials>
                   ) : (
                     <img
-                      src={appointment.user.avatar_url}
-                      alt={appointment.user.name}
+                      src={appointment.provider.avatar_url}
+                      alt={appointment.provider.name}
                     />
                   )}
 
-                  <strong>{appointment.user.name}</strong>
+                  */}
+                  
+                  <strong>{appointment.provider.name}</strong>
+                  <StatusBadge
+                    status={getDisplayStatus(appointment.status)}
+                  >
+                    {getDisplayStatus(appointment.status)}
+                  </StatusBadge>
                 </div>
               </Appointment>
             ))}
           </Section>
-          <Section>
-            <strong>Afternoon</strong>
 
-            {!afternoonAppointments.length && (
-              <p>No appointments for this period</p>
+          {/* Available Slots Section */}
+          <AvailableSlotsSection>
+            <h2>
+              <FiCalendar />
+              Available Slots for Booking
+            </h2>
+
+            {bookingMessage && (
+              <BookingMessage type={bookingMessage.type}>
+                {bookingMessage.type === 'success' ? <FiCheckCircle /> : <FiClock />}
+                {bookingMessage.text}
+              </BookingMessage>
             )}
 
-            {afternoonAppointments.map(appointment => (
-              <Appointment key={appointment.id}>
-                <span>
-                  <FiClock />
-                  {appointment.formattedHour}
-                </span>
-                <div>
-                  {appointment.user.avatar_url.length === 2 ? (
-                    <Initials>
-                      <span>{appointment.user.avatar_url}</span>
-                    </Initials>
-                  ) : (
-                    <img
-                      src={appointment.user.avatar_url}
-                      alt={appointment.user.name}
-                    />
-                  )}
+            {slotsForSelectedDate.length === 0 ? (
+              <p className="empty">No available slots for this date</p>
+            ) : (
+              <>
+                {morningSlots.length > 0 && (
+                  <SlotList>
+                    <strong>Morning Slots</strong>
+                    {morningSlots.map(slot => (
+                      <SlotItem key={slot.id}>
+                        <span className="time">
+                          <FiClock />
+                          {formatSlotTime(slot.date)}
+                        </span>
+                        <BookButton
+                          onClick={() => handleBookSlot(slot)}
+                          disabled={bookingLoading === slot.id}
+                        >
+                          {bookingLoading === slot.id ? (
+                            <>
+                              <FiLoader className="spin" /> Booking...
+                            </>
+                          ) : (
+                            'Book Now'
+                          )}
+                        </BookButton>
+                      </SlotItem>
+                    ))}
+                  </SlotList>
+                )}
 
-                  <strong>{appointment.user.name}</strong>
-                </div>
-              </Appointment>
-            ))}
-          </Section>
+                {afternoonSlots.length > 0 && (
+                  <SlotList>
+                    <strong>Afternoon Slots</strong>
+                    {afternoonSlots.map(slot => (
+                      <SlotItem key={slot.id}>
+                        <span className="time">
+                          <FiClock />
+                          {formatSlotTime(slot.date)}
+                        </span>
+                        <BookButton
+                          onClick={() => handleBookSlot(slot)}
+                          disabled={bookingLoading === slot.id}
+                        >
+                          {bookingLoading === slot.id ? (
+                            <>
+                              <FiLoader className="spin" /> Booking...
+                            </>
+                          ) : (
+                            'Book Now'
+                          )}
+                        </BookButton>
+                      </SlotItem>
+                    ))}
+                  </SlotList>
+                )}
+              </>
+            )}
+          </AvailableSlotsSection>
         </Schedule>
         <Calendar>
           <DayPicker

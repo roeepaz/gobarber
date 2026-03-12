@@ -29,6 +29,16 @@ class UsersRepository implements IUsersRepository {
     return user;
   }
 
+  public async findAdmin(): Promise<User | undefined> {
+    const admin = await this.ormRepository.findOne({
+      where: {
+        role: 'admin',
+      },
+    });
+
+    return admin;
+  }
+
   public async findAllProviders({
     except_user_id,
   }: IFindAllProvidersDTO): Promise<User[]> {

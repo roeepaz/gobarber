@@ -218,12 +218,21 @@ export const Appointment = styled.div`
     margin-top: 20px;
   }
 
-  > span {
-    margin-left: auto;
+  > span.date {
+    display: flex;
+    align-items: center;
+    color: ${({ theme }) => theme.colors.title};
+    width: 120px;
+    font-weight: 500;
+    font-size: 14px;
+  }
+
+  > span.hour {
     display: flex;
     align-items: center;
     color: ${({ theme }) => theme.colors.welcome};
-    width: 70px;
+    width: 80px;
+    margin-left: 16px;
 
     svg {
       color: ${({ theme }) => theme.colors.primary};
@@ -271,6 +280,166 @@ export const Initials = styled.div`
   > span {
     color: ${({ theme }) => theme.colors.primary};
     font-size: 24px;
+  }
+`;
+
+export const StatusBadge = styled.span<{
+  status: 'pending' | 'confirmed' | 'cancelled';
+}>`
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-left: auto;
+  margin-right: 12px;
+
+  ${({ status }) => {
+    switch (status) {
+      case 'pending':
+        return `
+          background: #f1c40f;
+          color: #7d6608;
+        `;
+      case 'confirmed':
+        return `
+          background: #2ecc71;
+          color: #145a32;
+        `;
+      case 'cancelled':
+        return `
+          background: #95a5a6;
+          color: #2c3e50;
+        `;
+      default:
+        return '';
+    }
+  }}
+`;
+
+export const AvailableSlotsSection = styled.div`
+  margin-top: 48px;
+  padding-top: 32px;
+  border-top: 1px solid ${({ theme }) => theme.colors.cardBackground};
+
+  h2 {
+    color: ${({ theme }) => theme.colors.title};
+    font-size: 24px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+
+    svg {
+      color: ${({ theme }) => theme.colors.primary};
+      margin-right: 12px;
+    }
+  }
+
+  .empty {
+    color: ${({ theme }) => theme.colors.text};
+    font-style: italic;
+    padding: 16px;
+    background: ${({ theme }) => theme.colors.secondary};
+    border-radius: 10px;
+    text-align: center;
+  }
+`;
+
+export const BookingMessage = styled.div<{ type: 'success' | 'error' }>`
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  margin-bottom: 24px;
+  border-radius: 10px;
+  background: ${({ type, theme }) =>
+    type === 'success' ? 'rgba(46, 204, 113, 0.1)' : 'rgba(231, 76, 60, 0.1)'};
+  border: 1px solid ${({ type, theme }) =>
+    type === 'success' ? '#2ecc71' : '#e74c3c'};
+  color: ${({ type, theme }) =>
+    type === 'success' ? '#2ecc71' : '#e74c3c'};
+
+  svg {
+    margin-right: 12px;
+    flex-shrink: 0;
+  }
+`;
+
+export const SlotList = styled.div`
+  margin-bottom: 24px;
+
+  > strong {
+    color: ${({ theme }) => theme.colors.text};
+    font-size: 18px;
+    display: block;
+    margin-bottom: 16px;
+  }
+`;
+
+export const SlotItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: ${({ theme }) => theme.colors.secondary};
+  border-radius: 10px;
+  margin-bottom: 12px;
+  transition: transform 0.2s;
+
+  &:hover {
+    transform: translateX(5px);
+  }
+
+  .time {
+    display: flex;
+    align-items: center;
+    color: ${({ theme }) => theme.colors.title};
+    font-size: 18px;
+    font-weight: 500;
+
+    svg {
+      color: ${({ theme }) => theme.colors.primary};
+      margin-right: 12px;
+    }
+  }
+`;
+
+export const BookButton = styled.button`
+  background: ${({ theme }) => theme.colors.primary};
+  color: ${({ theme }) => theme.colors.secondary};
+  border: 0;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+  display: flex;
+  align-items: center;
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => shade(0.2, theme.colors.primary)};
+  }
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+
+  svg {
+    margin-right: 8px;
+  }
+
+  .spin {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
 `;
 

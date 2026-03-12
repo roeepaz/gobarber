@@ -14,6 +14,13 @@ class AppointmentsRepository implements IAppointmentRepository {
     this.ormRepository = getRepository(Appointment);
   }
 
+  public async findById(id: string): Promise<Appointment | undefined> {
+    const appointment = await this.ormRepository.findOne(id, {
+      relations: ['user', 'provider'],
+    });
+    return appointment;
+  }
+
   public async findByDate(
     date: Date,
     provider_id: string,
@@ -68,6 +75,74 @@ class AppointmentsRepository implements IAppointmentRepository {
     return appointments;
   }
 
+  public async findAllByUser(user_id: string): Promise<Appointment[]> {
+    const appointments = await this.ormRepository.find({
+      where: { user_id },
+      order: { date: 'DESC' },
+      relations: ['provider'],
+    });
+
+    return appointments;
+  }
+
+  public async findAllByUserAndDate(
+    user_id: string,
+    day: number,
+    month: number,
+    year: number,
+  ): Promise<Appointment[]> {
+    const parsedDay = String(day).padStart(2, '0');
+    const parsedMonth = String(month).padStart(2, '0');
+
+    const appointments = await this.ormRepository.find({
+      where: {
+        user_id,
+        date: Raw(
+          dateFieldName =>
+            `to_char(${dateFieldName}, 'DD-MM-YYYY') = '${parsedDay}-${parsedMonth}-${year}'`,
+        ),
+      },
+      order: { date: 'ASC' },
+      relations: ['provider'],
+    });
+
+    return appointments;
+  }
+
+  public async findAllByStatus(
+    status: 'pending' | 'approved' | 'rejected' | 'cancelled',
+  ): Promise<Appointment[]> {
+    const appointments = await this.ormRepository.find({
+      where: { status },
+      order: { date: 'ASC' },
+      relations: ['user'],
+    });
+
+    return appointments;
+  }
+
+  public async findAllInDay(
+    day: number,
+    month: number,
+    year: number,
+  ): Promise<Appointment[]> {
+    const parsedDay = String(day).padStart(2, '0');
+    const parsedMonth = String(month).padStart(2, '0');
+
+    const appointments = await this.ormRepository.find({
+      where: {
+        date: Raw(
+          dateFieldName =>
+            `to_char(${dateFieldName}, 'DD-MM-YYYY') = '${parsedDay}-${parsedMonth}-${year}'`,
+        ),
+      },
+      order: { date: 'ASC' },
+      relations: ['user'],
+    });
+
+    return appointments;
+  }
+
   public async create({
     provider_id,
     user_id,
@@ -77,11 +152,16 @@ class AppointmentsRepository implements IAppointmentRepository {
       provider_id,
       user_id,
       date,
+      status: 'pending',
     });
 
     await this.ormRepository.save(appointment);
 
     return appointment;
+  }
+
+  public async save(appointment: Appointment): Promise<Appointment> {
+    return this.ormRepository.save(appointment);
   }
 }
 

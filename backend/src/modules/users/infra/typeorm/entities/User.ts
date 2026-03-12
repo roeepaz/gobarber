@@ -27,6 +27,9 @@ class User {
   @Column()
   avatar: string;
 
+  @Column({ type: 'enum', enum: ['admin', 'user'], default: 'user' })
+  role: 'admin' | 'user';
+
   @CreateDateColumn()
   created_at: Date;
 

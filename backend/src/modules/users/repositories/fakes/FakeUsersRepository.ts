@@ -19,6 +19,11 @@ class FakeUsersRepository implements IUsersRepository {
     return findUser;
   }
 
+  public async findAdmin(): Promise<User | undefined> {
+    const findAdmin = this.users.find(user => user.role === 'admin');
+    return findAdmin;
+  }
+
   public async findAllProviders({
     except_user_id,
   }: IFindAllProvidersDTO): Promise<User[]> {

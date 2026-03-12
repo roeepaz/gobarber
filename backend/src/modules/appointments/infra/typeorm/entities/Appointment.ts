@@ -33,6 +33,13 @@ class Appointment {
   @Column('timestamp with time zone')
   date: Date;
 
+  @Column({
+    type: 'enum',
+    enum: ['pending', 'approved', 'rejected', 'cancelled'],
+    default: 'pending',
+  })
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+
   @CreateDateColumn()
   created_at: Date;
 
